@@ -1,34 +1,42 @@
-pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
-
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // Don't forget to flush!
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
-
-test "fuzz example" {
-    const global = struct {
-        fn testOne(input: []const u8) anyerror!void {
-            // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
-            try std.testing.expect(!std.mem.eql(u8, "canyoufindme", input));
-        }
-    };
-    try std.testing.fuzz(global.testOne, .{});
-}
-
 const std = @import("std");
+const gl = @import("gl");
+const glfw = @import("mach-glfw");
+
+var gl_procs: gl.ProcTable = undefined;
+
+/// Default GLFW error handling callback
+fn errorCallback(error_code: glfw.ErrorCode, description: [:0]const u8) void {
+    std.log.err("glfw: {}: {s}\n", .{ error_code, description });
+}
+
+pub fn main() !void {
+    glfw.setErrorCallback(errorCallback);
+    if (!glfw.init(.{ .platform = .wayland })) {
+        std.log.err("failed to initialize GLFW: {?s}", .{glfw.getErrorString()});
+        return error.GlfwInitFailed;
+    }
+    defer glfw.terminate();
+
+    // Create our window
+    const window = glfw.Window.create(640, 480, "Hello, mach-glfw!", null, null, .{}) orelse {
+        std.log.err("failed to create GLFW window: {?s}", .{glfw.getErrorString()});
+        return error.GlfwWindowCreateFailed;
+    };
+    defer window.destroy();
+
+    glfw.makeContextCurrent(window);
+    defer glfw.makeContextCurrent(null);
+
+    if (!gl_procs.init(glfw.getProcAddress)) return error.GlInitFailed;
+
+    gl.makeProcTableCurrent(&gl_procs);
+    defer gl.makeProcTableCurrent(null);
+
+    // Wait for the user to close the window.
+    while (!window.shouldClose()) {
+        gl.ClearColor(1, 0, 0, 1);
+        gl.Clear(gl.COLOR_BUFFER_BIT);
+        window.swapBuffers();
+        glfw.pollEvents();
+    }
+}
