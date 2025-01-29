@@ -33,24 +33,31 @@ pub fn main() !void {
     defer window.destroy();
 
     glfw.makeContextCurrent(window);
-    defer glfw.makeContextCurrent(null);
 
     if (!gl_procs.init(glfw.getProcAddress)) return error.GlInitFailed;
 
     gl.makeProcTableCurrent(&gl_procs);
     defer gl.makeProcTableCurrent(null);
 
+    std.debug.print("{s}\n", .{gl.GetString(gl.VERSION).?});
+
+    const positions = [_]f32{
+        -0.5, -0.5,
+        0.0,  0.5,
+        0.5,  -0.5,
+    };
+
+    var buffer: gl.uint = undefined;
+    gl.GenBuffers(1, @ptrCast(&buffer));
+    gl.BindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.BufferData(gl.ARRAY_BUFFER, positions.len * @sizeOf(f32), &positions, gl.STATIC_DRAW);
+    gl.EnableVertexAttribArray(0);
+    gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0);
+
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
         gl.Clear(gl.COLOR_BUFFER_BIT);
-
-        gl.Begin(gl.TRIANGLES);
-        gl.Vertex2f(-0.5, -0.5);
-        gl.Vertex2f(0.0, 0.5);
-        gl.Vertex2f(0.5, -0.5);
-        gl.End();
-
-        printError();
+        gl.DrawArrays(gl.TRIANGLES, 0, comptime positions.len / 2);
 
         window.swapBuffers();
 
