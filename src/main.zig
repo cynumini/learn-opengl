@@ -1,4 +1,5 @@
 const std = @import("std");
+
 const gl = @import("gl");
 const glfw = @import("mach-glfw");
 
@@ -7,6 +8,13 @@ var gl_procs: gl.ProcTable = undefined;
 /// Default GLFW error handling callback
 fn errorCallback(error_code: glfw.ErrorCode, description: [:0]const u8) void {
     std.log.err("glfw: {}: {s}\n", .{ error_code, description });
+}
+
+fn printError() void {
+    const gl_error = gl.GetError();
+    if (gl_error != 0) {
+        std.debug.print("{}\n", .{gl_error});
+    }
 }
 
 pub fn main() !void {
@@ -34,9 +42,18 @@ pub fn main() !void {
 
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
-        gl.ClearColor(1, 0, 0, 1);
         gl.Clear(gl.COLOR_BUFFER_BIT);
+
+        gl.Begin(gl.TRIANGLES);
+        gl.Vertex2f(-0.5, -0.5);
+        gl.Vertex2f(0.0, 0.5);
+        gl.Vertex2f(0.5, -0.5);
+        gl.End();
+
+        printError();
+
         window.swapBuffers();
+
         glfw.pollEvents();
     }
 }
