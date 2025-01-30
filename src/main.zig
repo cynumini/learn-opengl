@@ -16,6 +16,63 @@ fn printError() void {
         std.debug.print("{}\n", .{gl_error});
     }
 }
+const ShaderProgramSource = struct {
+    const Self = @This();
+    allocator: std.mem.Allocator,
+    vertex: []const u8,
+    fragment: []const u8,
+
+    fn init(allocator: std.mem.Allocator, file_path: []const u8) !ShaderProgramSource {
+        const ShaderType = enum(i8) {
+            none = -1,
+            vertex = 0,
+            fragment = 1,
+        };
+
+        var file = try std.fs.cwd().openFile(file_path, .{});
+        defer file.close();
+
+        var shader_type = ShaderType.none;
+        var shaders = [_]std.ArrayList(u8){
+            std.ArrayList(u8).init(allocator),
+            std.ArrayList(u8).init(allocator),
+        };
+
+        while (true) {
+            var line = std.ArrayList(u8).init(allocator);
+            defer line.deinit();
+
+            file.reader().streamUntilDelimiter(line.writer(), '\n', null) catch |err| switch (err) {
+                error.EndOfStream => break,
+                else => |e| return e,
+            };
+
+            if (std.mem.eql(u8, line.items, "#shader vertex")) {
+                shader_type = .vertex;
+            } else if (std.mem.eql(u8, line.items, "#shader fragment")) {
+                shader_type = .fragment;
+            } else {
+                try shaders[@intCast(@intFromEnum(shader_type))].appendSlice(line.items);
+                try shaders[@intCast(@intFromEnum(shader_type))].append('\n');
+            }
+        }
+
+        for (0..2) |i| {
+            try shaders[i].append(0);
+        }
+
+        return .{
+            .allocator = allocator,
+            .vertex = try shaders[0].toOwnedSlice(),
+            .fragment = try shaders[1].toOwnedSlice(),
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.allocator.free(self.vertex);
+        self.allocator.free(self.fragment);
+    }
+};
 
 fn compileShader(@"type": u32, source: []const u8) !u32 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -58,6 +115,13 @@ fn createShader(vertex_shader: []const u8, fragment_shader: []const u8) !u32 {
 }
 
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer {
+        const deinit_status = gpa.deinit();
+        if (deinit_status == .leak) std.testing.expect(false) catch @panic("TEST FAIL");
+    }
+
     glfw.setErrorCallback(errorCallback);
     if (!glfw.init(.{ .platform = .wayland })) {
         std.log.err("failed to initialize GLFW: {?s}", .{glfw.getErrorString()});
@@ -94,10 +158,10 @@ pub fn main() !void {
     gl.EnableVertexAttribArray(0);
     gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0);
 
-    const vertex_shader = @embedFile("shader.vert");
-    const fragment_shader = @embedFile("shader.frag");
+    var source = try ShaderProgramSource.init(allocator, "res/shaders/basic.shader");
+    defer source.deinit();
 
-    const shader = try createShader(vertex_shader, fragment_shader);
+    const shader = try createShader(source.vertex, source.fragment);
     defer gl.DeleteProgram(shader);
 
     gl.UseProgram(shader);
