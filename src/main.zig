@@ -16,6 +16,7 @@ fn printError() void {
         std.debug.print("{}\n", .{gl_error});
     }
 }
+
 const ShaderProgramSource = struct {
     const Self = @This();
     allocator: std.mem.Allocator,
@@ -42,7 +43,7 @@ const ShaderProgramSource = struct {
             var line = std.ArrayList(u8).init(allocator);
             defer line.deinit();
 
-            file.reader().streamUntilDelimiter(line.writer(), '\n', null) catch |err| switch (err) {
+            file.reader().streamUntilDelimiter(line.writer(), '\n', null) catch |@"error"| switch (@"error") {
                 error.EndOfStream => break,
                 else => |e| return e,
             };
@@ -57,9 +58,7 @@ const ShaderProgramSource = struct {
             }
         }
 
-        for (0..2) |i| {
-            try shaders[i].append(0);
-        }
+        inline for (0..2) |i| try shaders[i].append(0);
 
         return .{
             .allocator = allocator,
@@ -147,16 +146,28 @@ pub fn main() !void {
 
     const positions = [_]f32{
         -0.5, -0.5,
-        0.0,  0.5,
         0.5,  -0.5,
+        0.5,  0.5,
+        -0.5, 0.5,
     };
 
-    var buffer: gl.uint = undefined;
+    const indices = [_]u32{
+        0, 1, 2,
+        2, 3, 0,
+    };
+
+    var buffer: u32 = undefined;
     gl.GenBuffers(1, @ptrCast(&buffer));
     gl.BindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.BufferData(gl.ARRAY_BUFFER, positions.len * @sizeOf(f32), &positions, gl.STATIC_DRAW);
+
     gl.EnableVertexAttribArray(0);
     gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0);
+
+    var ibo: u32 = undefined;
+    gl.GenBuffers(1, @ptrCast(&ibo));
+    gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(u32), &indices, gl.STATIC_DRAW);
 
     var source = try ShaderProgramSource.init(allocator, "res/shaders/basic.shader");
     defer source.deinit();
@@ -170,6 +181,7 @@ pub fn main() !void {
     while (!window.shouldClose()) {
         gl.Clear(gl.COLOR_BUFFER_BIT);
         gl.DrawArrays(gl.TRIANGLES, 0, comptime positions.len / 2);
+        gl.DrawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0);
 
         window.swapBuffers();
 
