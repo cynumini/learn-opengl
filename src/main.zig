@@ -17,6 +17,46 @@ fn printError() void {
     }
 }
 
+fn compileShader(@"type": u32, source: []const u8) !u32 {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    var allocator = arena.allocator();
+    defer arena.deinit();
+
+    const id = gl.CreateShader(@"type");
+    gl.ShaderSource(id, 1, &.{source.ptr}, null);
+    gl.CompileShader(id);
+    var result: i32 = undefined;
+    gl.GetShaderiv(id, gl.COMPILE_STATUS, &result);
+    if (result == gl.FALSE) {
+        var length: i32 = undefined;
+        gl.GetShaderiv(id, gl.INFO_LOG_LENGTH, &length);
+        const message: []u8 = try allocator.alloc(u8, @intCast(length));
+        gl.GetShaderInfoLog(id, length, &length, message.ptr);
+        const type_str = if (@"type" == gl.VERTEX_SHADER) "vertex" else "fragment";
+        std.debug.print("Failed to compile {s} shader!\n{s}\n", .{ type_str, message });
+        gl.DeleteShader(id);
+        return error.FailedToCompileShader;
+    }
+    return id;
+}
+
+fn createShader(vertex_shader: []const u8, fragment_shader: []const u8) !u32 {
+    const program = gl.CreateProgram();
+
+    const vs = try compileShader(gl.VERTEX_SHADER, vertex_shader);
+    defer gl.DeleteShader(vs);
+
+    const fs = try compileShader(gl.FRAGMENT_SHADER, fragment_shader);
+    defer gl.DeleteShader(fs);
+
+    gl.AttachShader(program, vs);
+    gl.AttachShader(program, fs);
+    gl.LinkProgram(program);
+    gl.ValidateProgram(program);
+
+    return program;
+}
+
 pub fn main() !void {
     glfw.setErrorCallback(errorCallback);
     if (!glfw.init(.{ .platform = .wayland })) {
@@ -53,6 +93,14 @@ pub fn main() !void {
     gl.BufferData(gl.ARRAY_BUFFER, positions.len * @sizeOf(f32), &positions, gl.STATIC_DRAW);
     gl.EnableVertexAttribArray(0);
     gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0);
+
+    const vertex_shader = @embedFile("shader.vert");
+    const fragment_shader = @embedFile("shader.frag");
+
+    const shader = try createShader(vertex_shader, fragment_shader);
+    defer gl.DeleteProgram(shader);
+
+    gl.UseProgram(shader);
 
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
