@@ -5,16 +5,36 @@ const glfw = @import("mach-glfw");
 
 var gl_procs: gl.ProcTable = undefined;
 
+inline fn assert(ok: bool) void {
+    if (!ok) @breakpoint();
+}
+
+inline fn glCall(func: anytype, args: anytype, src: std.builtin.SourceLocation) @TypeOf(@call(.auto, func, args)) {
+    glClearError();
+    const value = @call(.auto, func, args);
+    assert(glLogCall(src));
+    return value;
+}
+
 /// Default GLFW error handling callback
 fn errorCallback(error_code: glfw.ErrorCode, description: [:0]const u8) void {
     std.log.err("glfw: {}: {s}\n", .{ error_code, description });
 }
 
-fn printError() void {
-    const gl_error = gl.GetError();
-    if (gl_error != 0) {
-        std.debug.print("{}\n", .{gl_error});
+inline fn glClearError() void {
+    while (gl.GetError() != gl.NO_ERROR) {}
+}
+
+inline fn glLogCall(src: std.builtin.SourceLocation) bool {
+    const @"error" = gl.GetError();
+
+    while (@"error" != gl.NO_ERROR) {
+        std.debug.print("do I really work?\n", .{});
+        std.debug.print("[OpenGL Error] ({}): {s} {s}:{}\n", .{ @"error", src.fn_name, src.file, src.line });
+        return false;
+        // @"error" = gl.GetError();
     }
+    return true;
 }
 
 const ShaderProgramSource = struct {
@@ -73,42 +93,42 @@ const ShaderProgramSource = struct {
     }
 };
 
-fn compileShader(@"type": u32, source: []const u8) !u32 {
+inline fn compileShader(@"type": u32, source: []const u8) !u32 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     var allocator = arena.allocator();
     defer arena.deinit();
 
-    const id = gl.CreateShader(@"type");
-    gl.ShaderSource(id, 1, &.{source.ptr}, null);
-    gl.CompileShader(id);
+    const id = glCall(gl.CreateShader, .{@"type"}, @src());
+    glCall(gl.ShaderSource, .{ id, 1, @as([*]const [*]const u8, &.{source.ptr}), null }, @src());
+    glCall(gl.CompileShader, .{id}, @src());
     var result: i32 = undefined;
-    gl.GetShaderiv(id, gl.COMPILE_STATUS, &result);
+    glCall(gl.GetShaderiv, .{ id, gl.COMPILE_STATUS, &result }, @src());
     if (result == gl.FALSE) {
         var length: i32 = undefined;
-        gl.GetShaderiv(id, gl.INFO_LOG_LENGTH, &length);
+        glCall(gl.GetShaderiv, .{ id, gl.INFO_LOG_LENGTH, &length }, @src());
         const message: []u8 = try allocator.alloc(u8, @intCast(length));
-        gl.GetShaderInfoLog(id, length, &length, message.ptr);
+        glCall(gl.GetShaderInfoLog, .{ id, length, &length, message.ptr }, @src());
         const type_str = if (@"type" == gl.VERTEX_SHADER) "vertex" else "fragment";
         std.debug.print("Failed to compile {s} shader!\n{s}\n", .{ type_str, message });
-        gl.DeleteShader(id);
+        glCall(gl.DeleteShader, .{id}, @src());
         return error.FailedToCompileShader;
     }
     return id;
 }
 
-fn createShader(vertex_shader: []const u8, fragment_shader: []const u8) !u32 {
-    const program = gl.CreateProgram();
+inline fn createShader(vertex_shader: []const u8, fragment_shader: []const u8) !u32 {
+    const program = glCall(gl.CreateProgram, .{}, @src());
 
     const vs = try compileShader(gl.VERTEX_SHADER, vertex_shader);
-    defer gl.DeleteShader(vs);
+    defer glCall(gl.DeleteShader, .{vs}, @src());
 
     const fs = try compileShader(gl.FRAGMENT_SHADER, fragment_shader);
-    defer gl.DeleteShader(fs);
+    defer glCall(gl.DeleteShader, .{fs}, @src());
 
-    gl.AttachShader(program, vs);
-    gl.AttachShader(program, fs);
-    gl.LinkProgram(program);
-    gl.ValidateProgram(program);
+    glCall(gl.AttachShader, .{ program, vs }, @src());
+    glCall(gl.AttachShader, .{ program, fs }, @src());
+    glCall(gl.LinkProgram, .{program}, @src());
+    glCall(gl.ValidateProgram, .{program}, @src());
 
     return program;
 }
@@ -142,7 +162,7 @@ pub fn main() !void {
     gl.makeProcTableCurrent(&gl_procs);
     defer gl.makeProcTableCurrent(null);
 
-    std.debug.print("{s}\n", .{gl.GetString(gl.VERSION).?});
+    std.debug.print("{s}\n", .{glCall(gl.GetString, .{gl.VERSION}, @src()).?});
 
     const positions = [_]f32{
         -0.5, -0.5,
@@ -157,31 +177,30 @@ pub fn main() !void {
     };
 
     var buffer: u32 = undefined;
-    gl.GenBuffers(1, @ptrCast(&buffer));
-    gl.BindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.BufferData(gl.ARRAY_BUFFER, positions.len * @sizeOf(f32), &positions, gl.STATIC_DRAW);
+    glCall(gl.GenBuffers, .{ 1, @as([*]u32, @ptrCast(&buffer)) }, @src());
+    glCall(gl.BindBuffer, .{ gl.ARRAY_BUFFER, buffer }, @src());
+    glCall(gl.BufferData, .{ gl.ARRAY_BUFFER, positions.len * @sizeOf(f32), &positions, gl.STATIC_DRAW }, @src());
 
-    gl.EnableVertexAttribArray(0);
-    gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0);
+    glCall(gl.EnableVertexAttribArray, .{0}, @src());
+    glCall(gl.VertexAttribPointer, .{ 0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0 }, @src());
 
     var ibo: u32 = undefined;
-    gl.GenBuffers(1, @ptrCast(&ibo));
-    gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(u32), &indices, gl.STATIC_DRAW);
+    glCall(gl.GenBuffers, .{ 1, @as([*]u32, @ptrCast(&ibo)) }, @src());
+    glCall(gl.BindBuffer, .{ gl.ELEMENT_ARRAY_BUFFER, ibo }, @src());
+    glCall(gl.BufferData, .{ gl.ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(u32), &indices, gl.STATIC_DRAW }, @src());
 
     var source = try ShaderProgramSource.init(allocator, "res/shaders/basic.shader");
     defer source.deinit();
 
     const shader = try createShader(source.vertex, source.fragment);
-    defer gl.DeleteProgram(shader);
+    defer glCall(gl.DeleteProgram, .{shader}, @src());
 
-    gl.UseProgram(shader);
+    glCall(gl.UseProgram, .{shader}, @src());
 
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
-        gl.Clear(gl.COLOR_BUFFER_BIT);
-        gl.DrawArrays(gl.TRIANGLES, 0, comptime positions.len / 2);
-        gl.DrawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0);
+        glCall(gl.Clear, .{gl.COLOR_BUFFER_BIT}, @src());
+        glCall(gl.DrawElements, .{ gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0 }, @src());
 
         window.swapBuffers();
 
