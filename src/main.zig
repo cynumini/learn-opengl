@@ -156,6 +156,7 @@ pub fn main() !void {
     defer window.destroy();
 
     glfw.makeContextCurrent(window);
+    glfw.swapInterval(1);
 
     if (!gl_procs.init(glfw.getProcAddress)) return error.GlInitFailed;
 
@@ -197,10 +198,20 @@ pub fn main() !void {
 
     glCall(gl.UseProgram, .{shader}, @src());
 
+    const location = glCall(gl.GetUniformLocation, .{ shader, "u_Color" }, @src());
+    assert(location != -1);
+
+    var r: f32 = 0;
+    var increment: f32 = 0.02;
+
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
         glCall(gl.Clear, .{gl.COLOR_BUFFER_BIT}, @src());
+        glCall(gl.Uniform4f, .{ location, r, 0.3, 0.8, 1.0 }, @src());
         glCall(gl.DrawElements, .{ gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0 }, @src());
+
+        if (r > 1.0 or r < 0) increment *= -1;
+        r += increment;
 
         window.swapBuffers();
 
