@@ -177,6 +177,10 @@ pub fn main() !void {
         2, 3, 0,
     };
 
+    var vao: u32 = undefined;
+    glCall(gl.GenVertexArrays, .{ 1, @as([*]u32, @ptrCast(&vao)) }, @src());
+    glCall(gl.BindVertexArray, .{vao}, @src());
+
     var buffer: u32 = undefined;
     glCall(gl.GenBuffers, .{ 1, @as([*]u32, @ptrCast(&buffer)) }, @src());
     glCall(gl.BindBuffer, .{ gl.ARRAY_BUFFER, buffer }, @src());
@@ -201,13 +205,23 @@ pub fn main() !void {
     const location = glCall(gl.GetUniformLocation, .{ shader, "u_Color" }, @src());
     assert(location != -1);
 
+    glCall(gl.BindVertexArray, .{0}, @src());
+    glCall(gl.UseProgram, .{0}, @src());
+    glCall(gl.BindBuffer, .{ gl.ARRAY_BUFFER, 0 }, @src());
+    glCall(gl.BindBuffer, .{ gl.ELEMENT_ARRAY_BUFFER, 0 }, @src());
+
     var r: f32 = 0;
     var increment: f32 = 0.02;
 
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
         glCall(gl.Clear, .{gl.COLOR_BUFFER_BIT}, @src());
+
+        glCall(gl.UseProgram, .{shader}, @src());
         glCall(gl.Uniform4f, .{ location, r, 0.3, 0.8, 1.0 }, @src());
+
+        glCall(gl.BindVertexArray, .{vao}, @src());
+
         glCall(gl.DrawElements, .{ gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0 }, @src());
 
         if (r > 1.0 or r < 0) increment *= -1;
