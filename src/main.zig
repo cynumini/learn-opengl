@@ -8,6 +8,8 @@ const assert = renderer.assert;
 const glCall = renderer.glCall;
 const IndexBuffer = @import("index_buffer.zig");
 const VertexBuffer = @import("vertex_buffer.zig");
+const VertexArray = @import("vertex_array.zig");
+const VertexBufferLayout = @import("vertex_buffer_layout.zig");
 
 var gl_procs: gl.ProcTable = undefined;
 
@@ -156,15 +158,17 @@ pub fn main() !void {
         2, 3, 0,
     };
 
-    var vao: u32 = undefined;
-    glCall(gl.GenVertexArrays, .{ 1, @as([*]u32, @ptrCast(&vao)) }, @src());
-    glCall(gl.BindVertexArray, .{vao}, @src());
+    var va = VertexArray.init();
+    defer va.deinit();
 
     var vb = VertexBuffer.init(&positions, positions.len * @sizeOf(f32));
     defer vb.deinit();
 
-    glCall(gl.EnableVertexAttribArray, .{0}, @src());
-    glCall(gl.VertexAttribPointer, .{ 0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0 }, @src());
+    var layout = try VertexBufferLayout.init(allocator);
+    defer layout.deinit();
+
+    try layout.push(f32, 3);
+    va.addBuffer(&vb, &layout);
 
     var ib = IndexBuffer.init(&indices);
     defer ib.deinit();
@@ -195,8 +199,7 @@ pub fn main() !void {
         glCall(gl.UseProgram, .{shader}, @src());
         glCall(gl.Uniform4f, .{ location, r, 0.3, 0.8, 1.0 }, @src());
 
-        glCall(gl.BindVertexArray, .{vao}, @src());
-        vb.bind();
+        va.bind();
         ib.bind();
 
         glCall(gl.DrawElements, .{ gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0 }, @src());
