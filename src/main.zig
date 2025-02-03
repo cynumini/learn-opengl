@@ -4,8 +4,10 @@ const gl = @import("gl");
 const glfw = @import("mach-glfw");
 
 const renderer = @import("renderer.zig");
-const VertexBuffer = @import("vertex_buffer.zig");
+const assert = renderer.assert;
+const glCall = renderer.glCall;
 const IndexBuffer = @import("index_buffer.zig");
+const VertexBuffer = @import("vertex_buffer.zig");
 
 var gl_procs: gl.ProcTable = undefined;
 
@@ -70,42 +72,42 @@ const ShaderProgramSource = struct {
     }
 };
 
-inline fn compileShader(@"type": u32, source: []const u8) !u32 {
+fn compileShader(@"type": u32, source: []const u8) !u32 {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     var allocator = arena.allocator();
     defer arena.deinit();
 
-    const id = renderer.glCall(gl.CreateShader, .{@"type"}, @src());
-    renderer.glCall(gl.ShaderSource, .{ id, 1, @as([*]const [*]const u8, &.{source.ptr}), null }, @src());
-    renderer.glCall(gl.CompileShader, .{id}, @src());
+    const id = glCall(gl.CreateShader, .{@"type"}, @src());
+    glCall(gl.ShaderSource, .{ id, 1, @as([*]const [*]const u8, &.{source.ptr}), null }, @src());
+    glCall(gl.CompileShader, .{id}, @src());
     var result: i32 = undefined;
-    renderer.glCall(gl.GetShaderiv, .{ id, gl.COMPILE_STATUS, &result }, @src());
+    glCall(gl.GetShaderiv, .{ id, gl.COMPILE_STATUS, &result }, @src());
     if (result == gl.FALSE) {
         var length: i32 = undefined;
-        renderer.glCall(gl.GetShaderiv, .{ id, gl.INFO_LOG_LENGTH, &length }, @src());
+        glCall(gl.GetShaderiv, .{ id, gl.INFO_LOG_LENGTH, &length }, @src());
         const message: []u8 = try allocator.alloc(u8, @intCast(length));
-        renderer.glCall(gl.GetShaderInfoLog, .{ id, length, &length, message.ptr }, @src());
+        glCall(gl.GetShaderInfoLog, .{ id, length, &length, message.ptr }, @src());
         const type_str = if (@"type" == gl.VERTEX_SHADER) "vertex" else "fragment";
         std.debug.print("Failed to compile {s} shader!\n{s}\n", .{ type_str, message });
-        renderer.glCall(gl.DeleteShader, .{id}, @src());
+        glCall(gl.DeleteShader, .{id}, @src());
         return error.FailedToCompileShader;
     }
     return id;
 }
 
-inline fn createShader(vertex_shader: []const u8, fragment_shader: []const u8) !u32 {
-    const program = renderer.glCall(gl.CreateProgram, .{}, @src());
+fn createShader(vertex_shader: []const u8, fragment_shader: []const u8) !u32 {
+    const program = glCall(gl.CreateProgram, .{}, @src());
 
     const vs = try compileShader(gl.VERTEX_SHADER, vertex_shader);
-    defer renderer.glCall(gl.DeleteShader, .{vs}, @src());
+    defer glCall(gl.DeleteShader, .{vs}, @src());
 
     const fs = try compileShader(gl.FRAGMENT_SHADER, fragment_shader);
-    defer renderer.glCall(gl.DeleteShader, .{fs}, @src());
+    defer glCall(gl.DeleteShader, .{fs}, @src());
 
-    renderer.glCall(gl.AttachShader, .{ program, vs }, @src());
-    renderer.glCall(gl.AttachShader, .{ program, fs }, @src());
-    renderer.glCall(gl.LinkProgram, .{program}, @src());
-    renderer.glCall(gl.ValidateProgram, .{program}, @src());
+    glCall(gl.AttachShader, .{ program, vs }, @src());
+    glCall(gl.AttachShader, .{ program, fs }, @src());
+    glCall(gl.LinkProgram, .{program}, @src());
+    glCall(gl.ValidateProgram, .{program}, @src());
 
     return program;
 }
@@ -140,7 +142,7 @@ pub fn main() !void {
     gl.makeProcTableCurrent(&gl_procs);
     defer gl.makeProcTableCurrent(null);
 
-    std.debug.print("{s}\n", .{renderer.glCall(gl.GetString, .{gl.VERSION}, @src()).?});
+    std.debug.print("{s}\n", .{glCall(gl.GetString, .{gl.VERSION}, @src()).?});
 
     const positions = [_]f32{
         -0.5, -0.5,
@@ -155,14 +157,14 @@ pub fn main() !void {
     };
 
     var vao: u32 = undefined;
-    renderer.glCall(gl.GenVertexArrays, .{ 1, @as([*]u32, @ptrCast(&vao)) }, @src());
-    renderer.glCall(gl.BindVertexArray, .{vao}, @src());
+    glCall(gl.GenVertexArrays, .{ 1, @as([*]u32, @ptrCast(&vao)) }, @src());
+    glCall(gl.BindVertexArray, .{vao}, @src());
 
     var vb = VertexBuffer.init(&positions, positions.len * @sizeOf(f32));
     defer vb.deinit();
 
-    renderer.glCall(gl.EnableVertexAttribArray, .{0}, @src());
-    renderer.glCall(gl.VertexAttribPointer, .{ 0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0 }, @src());
+    glCall(gl.EnableVertexAttribArray, .{0}, @src());
+    glCall(gl.VertexAttribPointer, .{ 0, 2, gl.FLOAT, gl.FALSE, 2 * @sizeOf(f32), 0 }, @src());
 
     var ib = IndexBuffer.init(&indices);
     defer ib.deinit();
@@ -171,31 +173,33 @@ pub fn main() !void {
     defer source.deinit();
 
     const shader = try createShader(source.vertex, source.fragment);
-    defer renderer.glCall(gl.DeleteProgram, .{shader}, @src());
+    defer glCall(gl.DeleteProgram, .{shader}, @src());
 
-    renderer.glCall(gl.UseProgram, .{shader}, @src());
+    glCall(gl.UseProgram, .{shader}, @src());
 
-    const location = renderer.glCall(gl.GetUniformLocation, .{ shader, "u_Color" }, @src());
-    renderer.assert(location != -1);
+    const location = glCall(gl.GetUniformLocation, .{ shader, "u_Color" }, @src());
+    assert(location != -1);
 
-    renderer.glCall(gl.BindVertexArray, .{0}, @src());
-    renderer.glCall(gl.UseProgram, .{0}, @src());
-    renderer.glCall(gl.BindBuffer, .{ gl.ARRAY_BUFFER, 0 }, @src());
-    renderer.glCall(gl.BindBuffer, .{ gl.ELEMENT_ARRAY_BUFFER, 0 }, @src());
+    glCall(gl.BindVertexArray, .{0}, @src());
+    glCall(gl.UseProgram, .{0}, @src());
+    vb.unbind();
+    ib.unbind();
 
     var r: f32 = 0;
     var increment: f32 = 0.02;
 
     // Wait for the user to close the window.
     while (!window.shouldClose()) {
-        renderer.glCall(gl.Clear, .{gl.COLOR_BUFFER_BIT}, @src());
+        glCall(gl.Clear, .{gl.COLOR_BUFFER_BIT}, @src());
 
-        renderer.glCall(gl.UseProgram, .{shader}, @src());
-        renderer.glCall(gl.Uniform4f, .{ location, r, 0.3, 0.8, 1.0 }, @src());
+        glCall(gl.UseProgram, .{shader}, @src());
+        glCall(gl.Uniform4f, .{ location, r, 0.3, 0.8, 1.0 }, @src());
 
-        renderer.glCall(gl.BindVertexArray, .{vao}, @src());
+        glCall(gl.BindVertexArray, .{vao}, @src());
+        vb.bind();
         ib.bind();
-        renderer.glCall(gl.DrawElements, .{ gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0 }, @src());
+
+        glCall(gl.DrawElements, .{ gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, 0 }, @src());
 
         if (r > 1.0 or r < 0) increment *= -1;
         r += increment;

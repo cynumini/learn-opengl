@@ -10,14 +10,13 @@ renderer_id: u32,
 count: usize,
 
 pub fn init(data: []const u32) Self {
-    std.debug.print("{any}\n", .{data});
     var renderer_id: u32 = undefined;
     renderer.glCall(gl.GenBuffers, .{ 1, @as([*]u32, @ptrCast(&renderer_id)) }, @src());
     renderer.glCall(gl.BindBuffer, .{ gl.ELEMENT_ARRAY_BUFFER, renderer_id }, @src());
     renderer.glCall(gl.BufferData, .{
         gl.ELEMENT_ARRAY_BUFFER,
         @as(isize, @intCast(data.len * @sizeOf(u32))),
-        @as(*anyopaque, @ptrCast(@constCast(&data))),
+        data.ptr,
         gl.STATIC_DRAW,
     }, @src());
     return .{ .renderer_id = renderer_id, .count = data.len };
