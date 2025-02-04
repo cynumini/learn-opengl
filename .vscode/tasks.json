@@ -1,15 +1,20 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Compile",
-            "type": "shell",
-            "command": "zig build"
-        },
-        {
-            "label": "Run",
-            "type": "shell",
-            "command": "zig build run"
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Compile",
+      "type": "shell",
+      "command": "cmake --build ./out/release"
+    },
+    {
+      "label": "Run",
+      "type": "shell",
+      "command": "cmake --build ./out/release; ./out/debug/learn-opengl"
+    },
+    {
+      "label": "Debug",
+      "type": "shell",
+      "command": "cmake --build ./out/debug"
+    }
+  ]
 }
