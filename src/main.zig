@@ -88,12 +88,18 @@ pub fn main() !void {
     c.glDeleteShader(fragmentShader);
 
     const vertices = [_]f32{
-        -0.5, -0.5, 0.0, // left
-        0.5, -0.5, 0.0, // right
-        0.0, 0.5, 0.0, // top
+        0.5, 0.5, 0.0, // top right
+        0.5, -0.5, 0.0, // bottom right
+        -0.5, -0.5, 0.0, // bottom left
+        -0.5, 0.5, 0.0, // top left
     };
 
-    var VBO: u32, var VAO: u32 = .{ undefined, undefined };
+    const indices = [_]u32{ // note that we start from 0!
+        0, 1, 3, // first triangle
+        1, 2, 3, // second triangle
+    };
+
+    var VBO: u32, var VAO: u32, var EBO: u32 = .{ undefined, undefined, undefined };
 
     c.glGenVertexArrays(1, @ptrCast(&VAO));
     defer c.glDeleteVertexArrays(1, @ptrCast(&VAO));
@@ -101,19 +107,31 @@ pub fn main() !void {
     c.glGenBuffers(1, @ptrCast(&VBO));
     defer c.glDeleteBuffers(1, @ptrCast(&VBO));
 
+    c.glGenBuffers(1, @ptrCast(&EBO));
+    defer c.glDeleteBuffers(1, @ptrCast(&EBO));
+
     // Setup or VAO
     {
-        c.glBindVertexArray(VAO);
-        defer c.glBindVertexArray(0); // unselect VAO
+        c.glBindVertexArray(VAO); // first selected
 
         c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
         defer c.glBindBuffer(c.GL_ARRAY_BUFFER, 0); // unselect VBO
 
         c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, c.GL_STATIC_DRAW);
 
+        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, EBO);
+        defer c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, 0); // unselect EBO
+
+        c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, @sizeOf(u32) * indices.len, &indices, c.GL_STATIC_DRAW);
+
         c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), @ptrFromInt(0));
         c.glEnableVertexAttribArray(0);
+
+        c.glBindVertexArray(0); // first unselected
     }
+
+    // Wireframe mode
+    // c.glPolygonMode(c.GL_FRONT_AND_BACK, c.GL_LINE);
 
     // render loop
     while (c.glfwWindowShouldClose(window) != 1) {
@@ -126,7 +144,7 @@ pub fn main() !void {
 
         c.glUseProgram(shaderProgram);
         c.glBindVertexArray(VAO);
-        c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
+        c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));
 
         // check and call events and swap the buffers
         c.glfwSwapBuffers(window);
