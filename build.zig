@@ -16,10 +16,12 @@ pub fn build(b: *std.Build) void {
         .root_module = exe_mod,
     });
 
-    exe.linkLibC();
-    exe.linkSystemLibrary("glfw");
-    exe.addIncludePath(b.path("deps/glad/include/"));
-    exe.addCSourceFile(.{ .file = b.path("deps/glad/src/glad.c") });
+    const sakana = b.dependency("sakana", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    exe.root_module.addImport("sakana", sakana.module("sakana"));
 
     b.installArtifact(exe);
 

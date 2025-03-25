@@ -1,18 +1,21 @@
 const std = @import("std");
 
-const c = @cImport({
-    @cInclude("glad/glad.h");
-    @cInclude("GLFW/glfw3.h");
-});
+// const c = @cImport({
+//     @cInclude("glad/glad.h");
+//     @cInclude("GLFW/glfw3.h");
+// });
 
-export fn framebufferSizeCallback(window: ?*c.GLFWwindow, width: c_int, height: c_int) void {
+const c = @import("sakana").c;
+const glfw = @import("sakana").glfw;
+
+export fn framebufferSizeCallback(window: ?*glfw.c.GLFWwindow, width: c_int, height: c_int) void {
     _ = window;
     c.glViewport(0, 0, width, height);
 }
 
-fn processInput(window: *c.GLFWwindow) void {
-    if (c.glfwGetKey(window, c.GLFW_KEY_ESCAPE) == c.GLFW_PRESS) {
-        c.glfwSetWindowShouldClose(window, 1);
+fn processInput(window: *glfw.c.GLFWwindow) void {
+    if (glfw.c.glfwGetKey(window, c.GLFW_KEY_ESCAPE) == c.GLFW_PRESS) {
+        glfw.c.glfwSetWindowShouldClose(window, 1);
     }
 }
 
@@ -23,21 +26,15 @@ const vertexShaderSource = @embedFile("basic.vert");
 const fragmentShaderSource = @embedFile("basic.frag");
 
 pub fn main() !void {
-    _ = c.glfwInit();
-    defer c.glfwTerminate();
+    try glfw.init();
+    defer glfw.terminate();
 
-    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 3);
-    c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 3);
-    c.glfwWindowHint(c.GLFW_OPENGL_PROFILE, c.GLFW_OPENGL_CORE_PROFILE);
+    glfw.setupOpenGL(3, 3, .core_profile);
 
-    const window = c.glfwCreateWindow(screenWidth, screenHeight, "LearnOpenGL", null, null) orelse {
-        std.debug.print("Failed to create GLFW window\n", .{});
-        c.glfwTerminate();
-        return error.CantCreateGLFWWindow;
-    };
+    const window = try glfw.Window.init(screenWidth, screenHeight, "LearnOpenGL");
 
-    c.glfwMakeContextCurrent(window);
-    _ = c.glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    glfw.c.glfwMakeContextCurrent(window.window);
+    _ = glfw.c.glfwSetFramebufferSizeCallback(window.window, framebufferSizeCallback);
 
     if (c.gladLoadGLLoader(@ptrCast(&c.glfwGetProcAddress)) == 0) {
         std.debug.print("Failed to initialize GLAD\n", .{});
@@ -134,9 +131,9 @@ pub fn main() !void {
     // c.glPolygonMode(c.GL_FRONT_AND_BACK, c.GL_LINE);
 
     // render loop
-    while (c.glfwWindowShouldClose(window) != 1) {
+    while (glfw.c.glfwWindowShouldClose(window.window) != 1) {
         // input
-        processInput(window);
+        processInput(window.window);
 
         // rendering commands here
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
@@ -147,7 +144,7 @@ pub fn main() !void {
         c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));
 
         // check and call events and swap the buffers
-        c.glfwSwapBuffers(window);
-        c.glfwPollEvents();
+        glfw.c.glfwSwapBuffers(window.window);
+        glfw.c.glfwPollEvents();
     }
 }
