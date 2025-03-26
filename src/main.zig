@@ -1,88 +1,60 @@
 const std = @import("std");
 
-// const c = @cImport({
-//     @cInclude("glad/glad.h");
-//     @cInclude("GLFW/glfw3.h");
-// });
-
-const c = @import("sakana").c;
 const glfw = @import("sakana").glfw;
+const gl = @import("sakana").gl;
 
-export fn framebufferSizeCallback(window: ?*glfw.c.GLFWwindow, width: c_int, height: c_int) void {
+fn framebufferSizeCallback(window: glfw.Window, width: i32, height: i32) void {
     _ = window;
-    c.glViewport(0, 0, width, height);
+    gl.viewport(0, 0, width, height);
 }
 
-fn processInput(window: *glfw.c.GLFWwindow) void {
-    if (glfw.c.glfwGetKey(window, c.GLFW_KEY_ESCAPE) == c.GLFW_PRESS) {
-        glfw.c.glfwSetWindowShouldClose(window, 1);
+fn processInput(window: glfw.Window) void {
+    if (window.getKey(.escape) == .press) {
+        window.setShouldClose(true);
     }
 }
 
-const screenWidth = 800;
-const screenHeight = 600;
+const screen_width = 800;
+const screen_height = 600;
 
-const vertexShaderSource = @embedFile("basic.vert");
-const fragmentShaderSource = @embedFile("basic.frag");
+const vertex_shader_source = @embedFile("basic.vert");
+const fragment_shader_source = @embedFile("basic.frag");
 
 pub fn main() !void {
+    const std_err = std.io.getStdErr().writer();
+
     try glfw.init();
-    defer glfw.terminate();
+    defer glfw.deinit();
 
     glfw.setupOpenGL(3, 3, .core_profile);
 
-    const window = try glfw.Window.init(screenWidth, screenHeight, "LearnOpenGL");
+    const window = try glfw.Window.init(screen_width, screen_height, "LearnOpenGL");
 
-    glfw.c.glfwMakeContextCurrent(window.window);
-    _ = glfw.c.glfwSetFramebufferSizeCallback(window.window, framebufferSizeCallback);
+    window.makeContextCurrent();
+    _ = window.setFramebufferSizeCallback(framebufferSizeCallback);
 
-    if (c.gladLoadGLLoader(@ptrCast(&c.glfwGetProcAddress)) == 0) {
-        std.debug.print("Failed to initialize GLAD\n", .{});
-        return error.CantInitGLAD;
+    try gl.init();
+
+    const shader_program = gl.ShaderProgram.init();
+    defer shader_program.deinit();
+    {
+        // Compile vertex shader
+        const vertex_shader = gl.Shader.init(.vertex_shader);
+        defer vertex_shader.deinit();
+
+        vertex_shader.source(vertex_shader_source);
+        try vertex_shader.compile(std_err);
+
+        // Compile fragment shader
+        const fragment_shader = gl.Shader.init(.fragment_shader);
+        defer fragment_shader.deinit();
+        fragment_shader.source(fragment_shader_source);
+        try fragment_shader.compile(std_err);
+
+        shader_program.attachShader(vertex_shader);
+        shader_program.attachShader(fragment_shader);
+        try shader_program.link(std_err);
     }
-
-    // Compile vertex shader
-    const vertexShader = c.glCreateShader(c.GL_VERTEX_SHADER);
-    c.glShaderSource(vertexShader, 1, @ptrCast(&vertexShaderSource), null);
-    c.glCompileShader(vertexShader);
-
-    var success: i32 = undefined;
-    var infoLog: [512]u8 = undefined;
-    c.glGetShaderiv(vertexShader, c.GL_COMPILE_STATUS, &success);
-    if (success == 0) {
-        c.glGetShaderInfoLog(vertexShader, 512, null, &infoLog);
-        std.debug.print("{s}", .{infoLog});
-        return error.ShaderVertexCompilationFailed;
-    }
-
-    // Compile fragment shader
-    const fragmentShader = c.glCreateShader(c.GL_FRAGMENT_SHADER);
-    c.glShaderSource(fragmentShader, 1, @ptrCast(&fragmentShaderSource), null);
-    c.glCompileShader(fragmentShader);
-
-    c.glGetShaderiv(fragmentShader, c.GL_COMPILE_STATUS, &success);
-    if (success == 0) {
-        c.glGetShaderInfoLog(fragmentShader, 512, null, &infoLog);
-        std.debug.print("{s}", .{infoLog});
-        return error.ShaderFragmentCompilationFailed;
-    }
-
-    const shaderProgram = c.glCreateProgram();
-    defer c.glDeleteProgram(shaderProgram);
-
-    c.glAttachShader(shaderProgram, vertexShader);
-    c.glAttachShader(shaderProgram, fragmentShader);
-    c.glLinkProgram(shaderProgram);
-
-    c.glGetProgramiv(shaderProgram, c.GL_LINK_STATUS, &success);
-    if (success == 0) {
-        c.glGetProgramInfoLog(shaderProgram, 512, null, &infoLog);
-        std.debug.print("{s}", .{infoLog});
-        return error.shaderProgramLinkError;
-    }
-
-    c.glDeleteShader(vertexShader);
-    c.glDeleteShader(fragmentShader);
 
     const vertices = [_]f32{
         0.5, 0.5, 0.0, // top right
@@ -96,55 +68,53 @@ pub fn main() !void {
         1, 2, 3, // second triangle
     };
 
-    var VBO: u32, var VAO: u32, var EBO: u32 = .{ undefined, undefined, undefined };
+    const VAO = gl.VertexArray.init();
+    defer VAO.deinit();
 
-    c.glGenVertexArrays(1, @ptrCast(&VAO));
-    defer c.glDeleteVertexArrays(1, @ptrCast(&VAO));
+    const VBO = gl.Buffer.init(.array);
+    defer VBO.deinit();
 
-    c.glGenBuffers(1, @ptrCast(&VBO));
-    defer c.glDeleteBuffers(1, @ptrCast(&VBO));
-
-    c.glGenBuffers(1, @ptrCast(&EBO));
-    defer c.glDeleteBuffers(1, @ptrCast(&EBO));
+    const EBO = gl.Buffer.init(.element_array);
+    defer EBO.deinit();
 
     // Setup or VAO
     {
-        c.glBindVertexArray(VAO); // first selected
+        VAO.bind(); // first select
 
-        c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
-        defer c.glBindBuffer(c.GL_ARRAY_BUFFER, 0); // unselect VBO
+        VBO.bind();
+        defer VBO.unbind();
 
-        c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, c.GL_STATIC_DRAW);
+        VBO.data(f32, &vertices);
 
-        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, EBO);
-        defer c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, 0); // unselect EBO
+        EBO.bind();
+        defer EBO.unbind();
 
-        c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, @sizeOf(u32) * indices.len, &indices, c.GL_STATIC_DRAW);
+        EBO.data(u32, &indices);
 
-        c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), @ptrFromInt(0));
-        c.glEnableVertexAttribArray(0);
+        VBO.vertexAttribPointer(0, 3, .float, false, 3 * @sizeOf(f32), @ptrFromInt(0));
+        VBO.enableVertexAttribArray(0);
 
-        c.glBindVertexArray(0); // first unselected
+        VAO.unbind();
     }
 
     // Wireframe mode
-    // c.glPolygonMode(c.GL_FRONT_AND_BACK, c.GL_LINE);
+    // gl.polygonMode(.line);
 
     // render loop
-    while (glfw.c.glfwWindowShouldClose(window.window) != 1) {
+    while (!window.shouldClose()) {
         // input
-        processInput(window.window);
+        processInput(window);
 
         // rendering commands here
-        c.glClearColor(0.2, 0.3, 0.3, 1.0);
-        c.glClear(c.GL_COLOR_BUFFER_BIT);
+        gl.clearColor(0.2, 0.3, 0.3, 1.0);
+        gl.clear(gl.color_buffer_bit);
 
-        c.glUseProgram(shaderProgram);
-        c.glBindVertexArray(VAO);
-        c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, @ptrFromInt(0));
+        shader_program.use();
+        VAO.bind();
+        gl.drawElements(.triangles, 6, .unsigned_int);
 
         // check and call events and swap the buffers
-        glfw.c.glfwSwapBuffers(window.window);
-        glfw.c.glfwPollEvents();
+        window.swapBuffers();
+        glfw.pollEvents();
     }
 }
