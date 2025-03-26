@@ -110,10 +110,10 @@ pub fn main() !void {
 
         shader_program.use();
 
-        const timeValue: f32 = @floatCast(glfw.c.glfwGetTime());
+        const timeValue: f32 = @floatCast(glfw.getTime());
         const greenValue = @sin(timeValue) / 2.0 + 0.5;
-        const vertexColorLocation = gl.c.glGetUniformLocation(shader_program.id, "ourColor");
-        gl.c.glUniform4f(vertexColorLocation, 0.0, greenValue, 0.0, 1.0);
+        const vertex_color = shader_program.getUniform("ourColor");
+        vertex_color.set4f(0, greenValue, 0, 1);
 
         VAO.bind();
         gl.drawElements(.triangles, 6, .unsigned_int);

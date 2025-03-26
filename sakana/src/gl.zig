@@ -64,6 +64,16 @@ pub const Shader = struct {
     }
 };
 
+pub const Uniform = struct {
+    id: GLint,
+
+    const Self = @This();
+
+    pub fn set4f(self: Self, v0: GLfloat, v1: GLfloat, v2: GLfloat, v3: GLfloat) void {
+        c.glUniform4f(self.id, v0, v1, v2, v3);
+    }
+};
+
 pub const ShaderProgram = struct {
     id: GLuint,
 
@@ -95,6 +105,10 @@ pub const ShaderProgram = struct {
             _ = try writer.print("{s}", .{infoLog});
             return error.ShaderProgramLinkError;
         }
+    }
+
+    pub fn getUniform(self: Self, name: []const u8) Uniform {
+        return .{ .id = c.glGetUniformLocation(self.id, name.ptr) };
     }
 };
 
@@ -198,9 +212,6 @@ pub fn clearColor(red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat) v
     c.glClearColor(red, green, blue, alpha);
 }
 
-// c.GL_DEPTH_BUFFER_BIT
-// c.GL_STENCIL_BUFFER_BIT
-// c.GL_COLOR_BUFFER_BIT
 pub const depth_buffer_bit = c.GL_DEPTH_BUFFER_BIT;
 pub const stencil_buffer_bit = c.GL_STENCIL_BUFFER_BIT;
 pub const color_buffer_bit = c.GL_COLOR_BUFFER_BIT;

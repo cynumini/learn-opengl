@@ -155,6 +155,10 @@ pub fn pollEvents() void {
     c.glfwPollEvents();
 }
 
+pub fn getTime() f64 {
+    return c.glfwGetTime();
+}
+
 pub const Window = struct {
     window: *c.GLFWwindow,
 
