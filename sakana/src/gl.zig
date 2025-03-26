@@ -72,6 +72,14 @@ pub const Uniform = struct {
     pub fn set4f(self: Self, v0: GLfloat, v1: GLfloat, v2: GLfloat, v3: GLfloat) void {
         c.glUniform4f(self.id, v0, v1, v2, v3);
     }
+
+    pub fn set1i(self: Self, v0: GLint) void {
+        c.glUniform1i(self.id, v0);
+    }
+
+    pub fn set1f(self: Self, v0: GLfloat) void {
+        c.glUniform1f(self.id, v0);
+    }
 };
 
 pub const ShaderProgram = struct {

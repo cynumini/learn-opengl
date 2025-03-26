@@ -2,6 +2,7 @@ const std = @import("std");
 
 const glfw = @import("sakana").glfw;
 const gl = @import("sakana").gl;
+const Shader = @import("sakana").Shader;
 
 fn framebufferSizeCallback(window: glfw.Window, width: i32, height: i32) void {
     _ = window;
@@ -21,6 +22,12 @@ const vertex_shader_source = @embedFile("basic.vert");
 const fragment_shader_source = @embedFile("basic.frag");
 
 pub fn main() !void {
+    var debug_allocator = std.heap.DebugAllocator(.{}){};
+    defer {
+        _ = debug_allocator.deinit();
+    }
+    const allocator = debug_allocator.allocator();
+
     const std_err = std.io.getStdErr().writer();
 
     try glfw.init();
@@ -35,32 +42,14 @@ pub fn main() !void {
 
     try gl.init();
 
-    const shader_program = gl.ShaderProgram.init();
-    defer shader_program.deinit();
-    {
-        // Compile vertex shader
-        const vertex_shader = gl.Shader.init(.vertex_shader);
-        defer vertex_shader.deinit();
-
-        vertex_shader.source(vertex_shader_source);
-        try vertex_shader.compile(std_err);
-
-        // Compile fragment shader
-        const fragment_shader = gl.Shader.init(.fragment_shader);
-        defer fragment_shader.deinit();
-        fragment_shader.source(fragment_shader_source);
-        try fragment_shader.compile(std_err);
-
-        shader_program.attachShader(vertex_shader);
-        shader_program.attachShader(fragment_shader);
-        try shader_program.link(std_err);
-    }
+    const shader = try Shader.init(allocator, std_err, "basic.vert", "basic.frag");
+    defer shader.deinit();
 
     const vertices = [_]f32{
-        0.5, 0.5, 0.0, // top right
-        0.5, -0.5, 0.0, // bottom right
-        -0.5, -0.5, 0.0, // bottom left
-        -0.5, 0.5, 0.0, // top left
+        0.5, 0.5, 0.0, 1.0, 0.0, 0.0, // top right
+        0.5, -0.5, 0.0, 0.0, 1.0, 0.0, // bottom right
+        -0.5, -0.5, 0.0, 0.0, 0.0, 1.0, // bottom left
+        -0.5, 0.5, 0.0, 0.0, 0.0, 0.0, // top left
     };
 
     const indices = [_]u32{ // note that we start from 0!
@@ -90,8 +79,11 @@ pub fn main() !void {
 
         EBO.data(u32, &indices);
 
-        VBO.vertexAttribPointer(0, 3, .float, false, 3 * @sizeOf(f32), @ptrFromInt(0));
+        VBO.vertexAttribPointer(0, 3, .float, false, 6 * @sizeOf(f32), @ptrFromInt(0));
         VBO.enableVertexAttribArray(0);
+
+        VBO.vertexAttribPointer(1, 3, .float, false, 6 * @sizeOf(f32), @ptrFromInt(3 * @sizeOf(f32)));
+        VBO.enableVertexAttribArray(1);
 
         VAO.unbind();
     }
@@ -108,12 +100,12 @@ pub fn main() !void {
         gl.clearColor(0.2, 0.3, 0.3, 1.0);
         gl.clear(gl.color_buffer_bit);
 
-        shader_program.use();
+        shader.use();
 
-        const timeValue: f32 = @floatCast(glfw.getTime());
-        const greenValue = @sin(timeValue) / 2.0 + 0.5;
-        const vertex_color = shader_program.getUniform("ourColor");
-        vertex_color.set4f(0, greenValue, 0, 1);
+        // const timeValue: f32 = @floatCast(glfw.getTime());
+        // const greenValue = @sin(timeValue) / 2.0 + 0.5;
+        // const vertex_color = shader_program.getUniform("ourColor");
+        // vertex_color.set4f(0, greenValue, 0, 1);
 
         VAO.bind();
         gl.drawElements(.triangles, 6, .unsigned_int);
