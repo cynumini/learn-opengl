@@ -40,9 +40,10 @@ pub fn use(self: Self) void {
 }
 
 pub fn setUniform1(self: Self, T: type, name: []const u8, value: T) void {
-    comptime switch (T) {
-        .bool => self.program.getUniform(name).set1i(@intFromBool(value)),
-        .i32 => self.program.getUniform(name).set1i(value),
-        .f32 => self.program.getUniform(name).set1f(value),
-    };
+    switch (T) {
+        bool => self.program.getUniform(name).set1i(@intFromBool(value)),
+        i32 => self.program.getUniform(name).set1i(value),
+        f32 => self.program.getUniform(name).set1f(value),
+        else => unreachable,
+    }
 }

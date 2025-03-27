@@ -11,6 +11,8 @@ pub fn build(b: *std.Build) void {
     });
 
     mod.addIncludePath(b.path("deps/glad/include/"));
+    mod.addIncludePath(b.path("deps/stb/include/"));
+    mod.addCSourceFile(.{ .file = b.path("deps/stb/stb_image.c") });
     mod.addCSourceFile(.{ .file = b.path("deps/glad/src/glad.c") });
 
     const lib = b.addLibrary(.{
