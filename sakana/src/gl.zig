@@ -13,7 +13,7 @@ const GLenum = u32;
 const GLfloat = f32;
 const GLbitfield = u32;
 
-const ShaderType = enum(GLenum) {
+pub const ShaderType = enum(GLenum) {
     vertex_shader = c.GL_VERTEX_SHADER,
     geometry_shader = c.GL_GEOMETRY_SHADER,
     fragment_shader = c.GL_FRAGMENT_SHADER,
@@ -44,7 +44,7 @@ pub const Shader = struct {
     }
 
     pub fn source(self: Self, code: []const u8) void {
-        c.glShaderSource(self.id, 1, @ptrCast(&code), null);
+        c.glShaderSource(self.id, 1, @ptrCast(&code), &[1]i32{@intCast(code.len)});
     }
 
     pub fn compile(self: Self, writer: std.fs.File.Writer) !void {

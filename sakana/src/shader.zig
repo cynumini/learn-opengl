@@ -7,37 +7,25 @@ const Self = @This();
 pub fn init(allocator: std.mem.Allocator, writer: std.fs.File.Writer, vertex_path: []const u8, fragment_path: []const u8) !Self {
     const program = gl.ShaderProgram.init();
 
-    // vertex source
-    const vertex_file = try std.fs.cwd().openFile(vertex_path, .{ .mode = .read_only });
-    defer vertex_file.close();
-    var vertex_source = try vertex_file.readToEndAlloc(allocator, std.math.maxInt(usize));
-    defer allocator.free(vertex_source);
-    vertex_source = try allocator.realloc(vertex_source, vertex_source.len + 1);
-    vertex_source[vertex_source.len - 1] = 0;
+    for (
+        &[2]gl.ShaderType{ gl.ShaderType.vertex_shader, gl.ShaderType.fragment_shader },
+        &[2][]const u8{ vertex_path, fragment_path },
+    ) |shader_type, path| {
+        const file = try std.fs.cwd().openFile(path, .{ .mode = .read_only });
+        defer file.close();
 
-    // fragment source
-    const fragment_file = try std.fs.cwd().openFile(fragment_path, .{ .mode = .read_only });
-    defer fragment_file.close();
-    var fragment_source = try fragment_file.readToEndAlloc(allocator, std.math.maxInt(usize));
-    defer allocator.free(fragment_source);
-    fragment_source = try allocator.realloc(fragment_source, fragment_source.len + 1);
-    fragment_source[fragment_source.len - 1] = 0;
+        const source = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
+        defer allocator.free(source);
 
-    // compile vertex shader
-    const vertex_shader = gl.Shader.init(.vertex_shader);
-    defer vertex_shader.deinit();
-    vertex_shader.source(vertex_source);
-    try vertex_shader.compile(writer);
+        const shader = gl.Shader.init(shader_type);
+        defer shader.deinit();
 
-    // Ccmpile fragment shader
-    const fragment_shader = gl.Shader.init(.fragment_shader);
-    defer fragment_shader.deinit();
-    fragment_shader.source(fragment_source);
-    try fragment_shader.compile(writer);
+        shader.source(source);
+        try shader.compile(writer);
 
-    // attach and link
-    program.attachShader(vertex_shader);
-    program.attachShader(fragment_shader);
+        program.attachShader(shader);
+    }
+
     try program.link(writer);
 
     return .{ .program = program };
