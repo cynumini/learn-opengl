@@ -1,6 +1,7 @@
 package learn_opengl
 
 import "core:c"
+import "core:math"
 
 import gl "vendor:OpenGL"
 import "vendor:glfw"
@@ -105,6 +106,12 @@ main :: proc() {
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
 		gl.UseProgram(shader_program)
+
+		time_value := f32(glfw.GetTime())
+		green_value := math.sin(time_value) / 2 + 0.5
+		vertex_color_location := gl.GetUniformLocation(shader_program, "ourColor")
+		gl.Uniform4f(vertex_color_location, 0, green_value, 0, 1)
+
 		gl.BindVertexArray(vao)
 		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, rawptr(uintptr(0)))
 
