@@ -36,39 +36,62 @@ main :: proc() {
 	defer gl.DeleteProgram(shader_program)
 
 	vertices := [?]f32 {
-		-0.5,
-		-0.5,
-		0.0, // left
+		0.5,
+		0.5,
+		0.0, // top right
 		0.5,
 		-0.5,
-		0.0, // right
-		0.0,
+		0.0, // bottom right
+		-0.5,
+		-0.5,
+		0.0, // bottom left
+		-0.5,
 		0.5,
-		0.0, // top
+		0.0, // top left
 	}
 
-	vbo, vao: u32
+	indices := [?]u32 {
+		0,
+		1,
+		3, // first triangle
+		1,
+		2,
+		3, // second triangle
+	}
 
-	gl.GenVertexArrays(1, &vao);
+	vbo, vao, ebo: u32
+
+	gl.GenVertexArrays(1, &vao)
 	defer gl.DeleteVertexArrays(1, &vao)
 
-	gl.GenVertexArrays(1, &vbo);
+	gl.GenVertexArrays(1, &vbo)
 	defer gl.DeleteVertexArrays(1, &vbo)
+
+	gl.GenBuffers(1, &ebo)
+	defer gl.DeleteBuffers(1, &ebo)
 
 	// Setup or VAO
 	{
-		gl.BindVertexArray(vao)
+		gl.BindVertexArray(vao) // first selected
 
 		gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 		defer gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 
 		gl.BufferData(gl.ARRAY_BUFFER, size_of(vertices), &vertices, gl.STATIC_DRAW)
 
+		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
+		defer gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0) // unselect EBO
+
+		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), &indices, gl.STATIC_DRAW)
+
 		gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3 * size_of(u32), 0)
 		gl.EnableVertexAttribArray(0)
 
-		gl.BindVertexArray(0)
+		gl.BindVertexArray(0) //first unselected
 	}
+
+	// Wireframe mode
+	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 
 	// render loop
 	for !glfw.WindowShouldClose(window) {
@@ -83,7 +106,7 @@ main :: proc() {
 
 		gl.UseProgram(shader_program)
 		gl.BindVertexArray(vao)
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, rawptr(uintptr(0)))
 
 		// check and call events and swap the buffers
 		glfw.SwapBuffers(window)
