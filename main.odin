@@ -39,15 +39,27 @@ main :: proc() {
 	vertices := [?]f32 {
 		0.5,
 		0.5,
+		0.0,
+		1.0,
+		0.0,
 		0.0, // top right
 		0.5,
 		-0.5,
+		0.0,
+		0.0,
+		1.0,
 		0.0, // bottom right
 		-0.5,
 		-0.5,
-		0.0, // bottom left
+		0.0,
+		0.0,
+		0.0,
+		1.0, // bottom left
 		-0.5,
 		0.5,
+		0.0,
+		0.0,
+		0.0,
 		0.0, // top left
 	}
 
@@ -85,8 +97,11 @@ main :: proc() {
 
 		gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), &indices, gl.STATIC_DRAW)
 
-		gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 3 * size_of(u32), 0)
+		gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 6 * size_of(u32), 0)
 		gl.EnableVertexAttribArray(0)
+
+		gl.VertexAttribPointer(1, 3, gl.FLOAT, false, 6 * size_of(f32), uintptr(3 * size_of(f32)))
+		gl.EnableVertexAttribArray(1)
 
 		gl.BindVertexArray(0) //first unselected
 	}
@@ -106,11 +121,6 @@ main :: proc() {
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
 		gl.UseProgram(shader_program)
-
-		time_value := f32(glfw.GetTime())
-		green_value := math.sin(time_value) / 2 + 0.5
-		vertex_color_location := gl.GetUniformLocation(shader_program, "ourColor")
-		gl.Uniform4f(vertex_color_location, 0, green_value, 0, 1)
 
 		gl.BindVertexArray(vao)
 		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, rawptr(uintptr(0)))
