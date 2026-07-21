@@ -19,6 +19,7 @@ dependencies = [
 
 sources = [
     'main.c',
+    'program.c',
 ]
 
 exe = executable(
