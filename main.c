@@ -5,7 +5,9 @@
 
 #include <glad/gl.h>
 
+#define STB_IMAGE_IMPLEMENTATION
 #include <GLFW/glfw3.h>
+#include <stb_image.h>
 
 #define UNUSED(variable) ((void)variable)
 #define UNREACHABLE() _unreachable(__FILE__, __LINE__);
@@ -52,9 +54,28 @@ static GLuint create_shader(GLenum type, const char *shader_source) {
     return shader;
 }
 
-static GLuint create_program(const char *vs_code, const char *fs_code) {
+static char *read_file_alloc(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    assert(file != NULL);
+    assert(fseek(file, 0, SEEK_END) == 0);
+    size_t size = ftell(file);
+    rewind(file);
+    char *buffer = malloc(size + 1);
+    assert(fread(buffer, 1, size, file) == size);
+    fclose(file);
+    buffer[size] = 0;
+    return buffer;
+}
+
+static GLuint create_program(const char *vs_path, const char *fs_path) {
+    char *vs_code = read_file_alloc(vs_path);
     GLuint vs = create_shader(GL_VERTEX_SHADER, vs_code);
+    free(vs_code);
+
+    char *fs_code = read_file_alloc(fs_path);
     GLuint fs = create_shader(GL_FRAGMENT_SHADER, fs_code);
+    free(fs_code);
+
     int success;
     GLuint program = glCreateProgram();
     glAttachShader(program, vs);
@@ -79,22 +100,6 @@ static GLuint create_program(const char *vs_code, const char *fs_code) {
 static const int SCR_WIDTH = 800;
 static const int SCR_HEIGHT = 600;
 
-const char *vertex_shader_source =
-    "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    "}";
-
-const char *fragment_shader_source =
-    "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "void main()\n"
-    "{\n"
-    "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-    "}";
-
 int main(void) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -109,18 +114,18 @@ int main(void) {
 
     assert(gladLoadGL((GLADloadfunc)glfwGetProcAddress) != 0);
 
-    GLuint shader_program =
-        create_program(vertex_shader_source, fragment_shader_source);
+    GLuint shader_program = create_program("basic.vert", "basic.frag");
 
     float vertices[] = {
-        0.5f,  0.5f,  0.0f, // top right
-        0.5f,  -0.5f, 0.0f, // bottom right
-        -0.5f, -0.5f, 0.0f, // bottom left
-        -0.5f, 0.5f,  0.0f  // top left
+        // positions          // colors           // texture coords
+        0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top right
+        0.5f,  -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // bottom right
+        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom left
+        -0.5f, 0.5f,  0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f  // top left
     };
     unsigned int indices[] = {
-        0, 1, 3, // first Triangle
-        1, 2, 3  // second Triangle
+        0, 1, 3, // first triangle
+        1, 2, 3  // second triangle
     };
     GLuint vbo, vao, ebo;
     glGenVertexArrays(1, &vao);
@@ -138,14 +143,67 @@ int main(void) {
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
                      GL_STATIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+        // position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
                               (void *)0);
         glEnableVertexAttribArray(0);
+
+        // color attribute
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+        // texture coord attribute
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
 
         glBindVertexArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
+
+    GLuint texture1, texture2;
+    {
+        glGenTextures(1, &texture1);
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        int width, height, nr_channels;
+        stbi_set_flip_vertically_on_load(true);
+        unsigned char *data =
+            stbi_load("fish.png", &width, &height, &nr_channels, 0);
+        if (data) {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                         GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+        } else {
+            fprintf(stderr, "Failed to load texture");
+        }
+        stbi_image_free(data);
+        // ----------------------------------
+        glGenTextures(1, &texture2);
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        data = stbi_load("work.png", &width, &height, &nr_channels, 0);
+        if (data) {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                         GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+        } else {
+            fprintf(stderr, "Failed to load texture");
+        }
+        stbi_image_free(data);
+    }
+
+    glUseProgram(shader_program);
+    glUniform1i(glGetUniformLocation(shader_program, "texture1"), 0);
+    glUniform1i(glGetUniformLocation(shader_program, "texture2"), 1);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -154,6 +212,11 @@ int main(void) {
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture2);
 
         glUseProgram(shader_program);
         glBindVertexArray(vao);
@@ -165,6 +228,7 @@ int main(void) {
 
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
     glDeleteProgram(shader_program);
 
     glfwTerminate();

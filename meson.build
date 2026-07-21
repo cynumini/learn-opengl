@@ -7,10 +7,12 @@ project(
 )
 
 glad_proj = subproject('glad')
+stb_proj = subproject('stb')
 
 dependencies = [
     dependency('glfw3'),
-    glad_proj.get_variable('glad_dep')
+    glad_proj.get_variable('glad_dep'),
+    stb_proj.get_variable('stb_dep')
 ]
 
 sources = [
