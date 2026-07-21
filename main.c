@@ -9,6 +9,8 @@
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 
+#include <cglm/cglm.h>
+
 #define UNUSED(variable) ((void)variable)
 #define UNREACHABLE() _unreachable(__FILE__, __LINE__);
 
@@ -117,11 +119,11 @@ int main(void) {
     GLuint shader_program = create_program("basic.vert", "basic.frag");
 
     float vertices[] = {
-        // positions          // colors           // texture coords
-        0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top right
-        0.5f,  -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // bottom right
-        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom left
-        -0.5f, 0.5f,  0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f  // top left
+        // positions          // texture coords
+        0.5f,  0.5f,  0.0f, 1.0f, 1.0f, // top right
+        0.5f,  -0.5f, 0.0f, 1.0f, 0.0f, // bottom right
+        -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, // bottom left
+        -0.5f, 0.5f,  0.0f, 0.0f, 1.0f  // top left
     };
     unsigned int indices[] = {
         0, 1, 3, // first triangle
@@ -144,19 +146,14 @@ int main(void) {
                      GL_STATIC_DRAW);
 
         // position attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
                               (void *)0);
         glEnableVertexAttribArray(0);
 
-        // color attribute
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+        // texture coord attribute
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
                               (void *)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
-
-        // texture coord attribute
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                              (void *)(6 * sizeof(float)));
-        glEnableVertexAttribArray(2);
 
         glBindVertexArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -218,7 +215,15 @@ int main(void) {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
 
+        mat4 transform = GLM_MAT4_IDENTITY_INIT;
+        glm_translate(transform, (vec3){0.5f, -0.5f, 0.0f});
+        glm_rotate(transform, (float)glfwGetTime(), (vec3){0.0f, 0.0f, 1.0f});
+
         glUseProgram(shader_program);
+
+        GLint transform_loc = glGetUniformLocation(shader_program, "transform");
+        glUniformMatrix4fv(transform_loc, 1, GL_FALSE, (float *)transform);
+ 
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
