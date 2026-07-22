@@ -19,7 +19,9 @@ dependencies = [
 
 sources = [
     'main.c',
-    'program.c',
+    'sakana.c',
+    'sakana_gfx.c',
+    # 'program.c',
 ]
 
 exe = executable(
