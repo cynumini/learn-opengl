@@ -7,16 +7,25 @@ int main(void) {
 
     set_clear_color(BLUE);
 
-    float x = -1;
+
+    vec3 vertices[6] = {
+        {.x = -0.5, .y = 0.5, .z = 0},  //
+        {.x = 0.5, .y = 0.5, .z = 0},   //
+        {.x = -0.5, .y = -0.5, .z = 0}, //
+        {.x = 0.5, .y = 0.5, .z = 0},   //
+        {.x = -0.5, .y = -0.5, .z = 0}, //
+        {.x = 0.5, .y = -0.5, .z = 0},  //
+    };
+    vec3 position = {.x = 0, .y = 0, .z = 0};
+    // vec2 size = {.x = 0.5, .y = 0.5};
 
     while (!window_shold_close()) {
         // update
-        x += 0.001;
+        position.x += 0.001;
         // draw
         draw_begin();
         clear();
-        draw_plane((vec2){.x = x, .y = 0.25}, (vec2){.x = 0.5, .y = 0.5},
-                   texture);
+        draw_vertices(vertices, 6, position);
         draw_end();
     }
 

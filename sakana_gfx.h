@@ -2,49 +2,15 @@
 #define SAKANA_GFX
 
 #include "sakana.h"
+#include "sakana_math.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct Texture {
     uint id;
     int width;
     int height;
 } Texture;
-
-typedef union skn_vec2 {
-    struct {
-        float x;
-        float y;
-    };
-    float v[2];
-} skn_vec2;
-#define vec2 skn_vec2
-
-typedef union skn_vec3 {
-    struct {
-        float x;
-        float y;
-        float z;
-    };
-    float v[3];
-} skn_vec3;
-#define vec3 skn_vec3
-
-typedef union skn_vec4 {
-    struct {
-        float x;
-        float y;
-        float z;
-        float w;
-    };
-    struct {
-        float r;
-        float g;
-        float b;
-        float a;
-    };
-    float v[4];
-} skn_vec4;
-#define vec4 skn_vec4
 
 typedef vec4 Color;
 
@@ -74,8 +40,8 @@ void skn_draw_end(void);
 #define draw_end skn_draw_end
 
 // 3d
-void skn_draw_plane(vec2 position, vec2 size, Texture texture);
-#define draw_plane skn_draw_plane
+void skn_draw_vertices(vec3 *vertices, size_t len, vec3 position);
+#define draw_vertices skn_draw_vertices
 
 // resource
 Texture skn_load_texture(const char *filename);

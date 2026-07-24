@@ -8,20 +8,18 @@ project(
 
 glad_proj = subproject('glad')
 stb_proj = subproject('stb')
-cglm_proj = subproject('cglm-0.9.6')
 
 dependencies = [
     dependency('glfw3'),
     glad_proj.get_variable('glad_dep'),
     stb_proj.get_variable('stb_dep'),
-    cglm_proj.get_variable('cglm_dep')
 ]
 
 sources = [
     'main.c',
     'sakana.c',
     'sakana_gfx.c',
-    # 'program.c',
+    'sakana_math.c',
 ]
 
 exe = executable(

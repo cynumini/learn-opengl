@@ -1,4 +1,5 @@
 #include "sakana_gfx.h"
+#include "sakana_math.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -119,21 +120,18 @@ void skn_draw_end(void) {
 
 void skn_draw_begin(void) {}
 
-void skn_draw_plane(vec2 position, vec2 size, Texture texture) {
-    UNUSED(position);
-    UNUSED(size);
-    UNUSED(texture);
-    vec3 vertices[6] = {
-        (vec3){.x = position.x, .y = position.y, .z = 0.0f},          // left
-        (vec3){.x = position.x + size.x, .y = position.y, .z = 0.0f}, // right
-        (vec3){.x = position.x, .y = position.y - size.y, .z = 0.0f},  // top
+void skn_draw_vertices(skn_vec3 *vertices, size_t len, skn_vec3 position) {
 
-        (vec3){.x = position.x + size.x, .y = position.y, .z = 0.0f}, // right
-        (vec3){.x = position.x, .y = position.y - size.y, .z = 0.0f},  // top
-        (vec3){.x = position.x + size.x, .y = position.y - size.y, .z = 0.0f}    // top
-    };
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, len * sizeof(skn_vec3), vertices, GL_STATIC_DRAW);
+
+    mat4 model = mat4_identity();
+    model = mat4_multiplication(mat4_translation(position), model);
+
     glUseProgram(skn_program);
+
+    int loc = glGetUniformLocation(skn_program, "model");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, (float *)&model);
+
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
